@@ -21,18 +21,54 @@ This document will guide you through setting up the development environment for 
    ```
 5. **Run the Application**: You can start the application with:
    ```bash
-   python main.py
+   python launchpad
    ```
 
 ## Portable Binary Usage
 
 For users who prefer not to set up a development environment, a portable binary is available.
-1. **Download the Portable Binary**: The latest binary can be downloaded from the [releases page](https://github.com/a3r0id/a3-mission-launchpad/releases).
-2. **Run the Binary**: After downloading, you can run the application directly. Ensure that you have the necessary permissions to execute the file. Simply run:
+
+> [!IMPORTANT]
+> The packaged binary simply uses [PyInstaller](https://pyinstaller.org/en/stable/) to build a portable, Python-based executable. The executable is not signed and WILL cause the program to be flagged by your antivirus as unsafe. If you prefer to build your own portable executable then you can follow the steps to package your own executable.
+
+**Install from GitHub**
+
+1. Clone the repo or download it as an archive via the github website.
+
+2. Jump into the repo directory and run the install script. *This will simply attempt to make a link from your desktop to the current binary's location*
+   
+   Windows
    ```bash
-   ./a3-mission-launchpad  # Modify with the correct name of the binary
+   cd a3-mission-launchpad
+   start install.bat
    ```
 
+   Linux/MacOS
+   ```bash
+   cd a3-mission-launchpad
+   chmod +x install.sh
+   ./install.sh
+   ```
+
+**Build your own executable**
+
+1. Clone the repo or download it as an archive via the github website.
+
+2. Jump into the repo directory then run the package script
+
+   Windows
+   ```bash
+   cd a3-mission-launchpad
+   start package.bat
+   ```
+
+   Linux/MacOS
+   ```bash
+   cd a3-mission-launchpad
+   chmod +x package.sh
+   ./package.sh
+   ```
+   
 ---
 
 Feel free to reach out if you encounter any issues or have questions!
