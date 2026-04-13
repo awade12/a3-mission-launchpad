@@ -40,13 +40,13 @@ For users who prefer not to set up a development environment, a portable binary 
    Windows
    ```bash
    cd a3-mission-launchpad
-   start install.bat
+   start install-desktop.bat
    ```
 
    Linux/MacOS
    ```bash
    cd a3-mission-launchpad
-   chmod +x install.sh
+   chmod +x install-desktop.sh
    ./install.sh
    ```
 

@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Portable onedir build: output folder ``A3MissionLaunchpad`` under ``--distpath`` (see package.bat).
+# Portable onedir build: COLLECT ``name=""`` puts the app directly under ``--distpath`` (e.g. ``bin/``).
 # Prerequisite: ``npm run build`` in ``launchpad_client`` so ``launchpad_client/dist`` exists.
 # Splash: ``launchpad_client/src/assets/hero.png`` (PNG; avoid #ff00ff on Windows — reserved for transparency).
 # EXE icon: ``icon.png`` at repo root is converted to ``build/_launchpad_exe.ico`` (Windows requires .ico; Pillow).
@@ -97,5 +97,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="A3MissionLaunchpad",
+    name="",
 )

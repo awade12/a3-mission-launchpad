@@ -18,7 +18,7 @@ if errorlevel 1 (
   echo ERROR: Pillow is required to convert icon.png to .ico. Run: pip install Pillow
   exit /b 1
 )
-rem PyInstaller deletes bin\A3MissionLaunchpad before COLLECT; locked DLLs ^(e.g. libcrypto-3.dll^)
+rem PyInstaller clears the whole ``bin`` output tree before COLLECT; locked DLLs ^(e.g. libcrypto-3.dll^)
 rem cause PermissionError if the packaged EXE is still running. Close it first.
 echo Closing A3MissionLaunchpad.exe if it is running...
 taskkill /IM A3MissionLaunchpad.exe /F >nul 2>&1

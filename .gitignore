@@ -29,7 +29,7 @@ dist-ssr
 
 # Runtime things
 launchpad_data
-bin/A3MissionLaunchpad/launchpad_data
+bin/launchpad_data
 
 # Build things
 build/
