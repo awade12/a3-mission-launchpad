@@ -36,40 +36,6 @@ jobs:
           echo "::error::Direct push to main is not allowed."
           exit 1
 
-  parse-commit-commands:
-    name: Parse Commit Commands
-    runs-on: [self-hosted, linux, x64]
-    needs: []
-    outputs:
-      commit_contains_update: ${{ steps.parse.outputs.commit_contains_update }}
-      commit_contains_restart: ${{ steps.parse.outputs.commit_contains_restart }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Parse commit commands
-        id: parse
-        run: |
-          set -e
-          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          echo "Commit message: $COMMIT_MESSAGE"
-          if echo "$COMMIT_MESSAGE" | grep -qE '!update'; then
-            echo "commit_contains_update=true" >> "$GITHUB_OUTPUT"
-            UPDATE_CMD=true
-          else
-            echo "commit_contains_update=false" >> "$GITHUB_OUTPUT"
-            UPDATE_CMD=false
-          fi
-          if echo "$COMMIT_MESSAGE" | grep -qE '!restart'; then
-            echo "commit_contains_restart=true" >> "$GITHUB_OUTPUT"
-            RESTART_CMD=true
-          else
-            echo "commit_contains_restart=false" >> "$GITHUB_OUTPUT"
-            RESTART_CMD=false
-          fi
-          echo "Parsed: !update=$UPDATE_CMD, !restart=$RESTART_CMD"
-
   version:
     name: Bump version
     runs-on: [self-hosted, linux, x64]
