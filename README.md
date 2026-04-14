@@ -16,7 +16,7 @@ Install Launchpad via a cross-platform installer or build from source. For more 
 
 ---
 
-## Quick start (after Launchpad is running)
+## Quick start
 
 ### Create a new mission
 
