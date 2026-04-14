@@ -2,22 +2,16 @@
 
 [![Extension CI (main)](https://github.com/a3r0id/a3-mission-launchpad/actions/workflows/extension-ci.yml/badge.svg?branch=main)](https://github.com/a3r0id/a3-mission-launchpad/actions/workflows/extension-ci.yml?query=branch%3Amain)
 
-The badge reflects the latest **main** run. For another branch, open [Actions → Extension CI](https://github.com/a3r0id/a3-mission-launchpad/actions/workflows/extension-ci.yml) and select the branch filter.
-
 ![Launchpad](launchpad.png)
 
 **Launchpad** is a robust suite of tools to aid Arma 3 mission makers and eventually modders. Launchpad features project organization/resource tracking, scripting, and soft-profiling - both in-game and out. There is a lot of tooling out there for mod makers; This project focuses on **mission makers**, at least to begin with. The main purpose of Launchpad is to fill the gap that Arma 3 Tools and 3Den lack, that Enfusion showed us. 
-
-If you are new here: you do **not** need to be a programmer to use the packaged app. If you want to change the app itself or run from source, the [installation guide](docs/INSTALLATION.md) walks through Python, a virtual environment, and running the app from the `launchpad_server` package (for example `python -m launchpad_server` from the repo root).
-
 ---
 
-## Get set up first
+## Installing Launchpad
 
-Before the steps below, install Launchpad using whichever path fits you:
-
-- **Download a release** — easiest if you just want the app: see [releases](https://github.com/a3r0id/a3-mission-launchpad/releases) and the “portable binary” section in [Installation](docs/INSTALLATION.md).
-- **Run from this repo** — clone the project, create a venv, `pip install -r launchpad_server/requirements.txt`, then run `python -m launchpad_server` from the project root (details in [Installation](docs/INSTALLATION.md)). The **packaged desktop app** for releases is built with **PyInstaller** (`python package.py package` or `python package.py build` after building the web client; see `launchpad.spec` and [Installation](docs/INSTALLATION.md)).
+Install Launchpad via a cross-platform installer or build from source. For more info see [Installation](docs/INSTALLATION.md).
+- **Download a release** — Install the latest release.
+- **Build from source** — Clone the project, run `cd a3-mission-launchpad && python3 build.py`.
 
 ---
 
