@@ -5,6 +5,7 @@
 ![Launchpad](launchpad.png)
 
 **Launchpad** is a robust suite of tools to aid Arma 3 mission makers and eventually modders. Launchpad features project organization/resource tracking, scripting, and soft-profiling - both in-game and out. There is a lot of tooling out there for mod makers; This project focuses on **mission makers**, at least to begin with. The main purpose of Launchpad is to fill the gap that Arma 3 Tools and 3Den lack, that Enfusion showed us. 
+
 ---
 
 ## Installing Launchpad
