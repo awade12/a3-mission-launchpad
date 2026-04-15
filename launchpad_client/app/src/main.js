@@ -346,7 +346,7 @@ class Main {
 		const exePath = path.join(binDir, exeName);
 		if (!fs.existsSync(exePath)) {
 		console.error(
-			'[Launchpad] Backend not found. From the repo root run: python package.py package',
+			'[Launchpad] Backend not found. From the repo root run: python util.py --build',
 		);
 		return;
 		}
