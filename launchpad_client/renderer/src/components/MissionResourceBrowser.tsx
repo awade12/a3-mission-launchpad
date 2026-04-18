@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react'
 import Editor from '@monaco-editor/react'
 import type { OnMount } from '@monaco-editor/react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faFileCirclePlus, faPen } from '@fortawesome/free-solid-svg-icons'
 import { fetchMissionProjectTree, type ProjectTreeNode } from '../api/launchpad'
+import { Spinner } from './Spinner'
 import { useAppPreferences } from '../context/AppPreferencesContext'
 import {
   ensureMissionMonacoShiki,
@@ -29,6 +32,58 @@ function relFromProjectRoot(projectRoot: string, filePath: string): string | nul
   if (!file.startsWith(root)) return null
   const tail = file.slice(root.length).replace(/^[/\\]+/, '')
   return tail ? tail.replace(/\\/g, '/') : null
+}
+
+function normalizeDiagSeverity(s: string): HemttDiagnostic['severity'] {
+  const x = s.toLowerCase()
+  if (x === 'warning') return 'warning'
+  if (x === 'help' || x === 'note') return 'help'
+  return 'error'
+}
+
+/** Resolve a diagnostic path segment the same way the desktop check does (absolute or under project). */
+function resolveDiagnosticFile(projectRoot: string, rawPath: string): string {
+  const t = rawPath.trim()
+  if (!t) return joinProjectPath(projectRoot, 'unknown')
+  if (/^[A-Za-z]:[\\/]/.test(t) || t.startsWith('/') || t.startsWith('\\\\')) {
+    const win = projectRoot.includes('\\')
+    return win ? t.replace(/\//g, '\\') : t.replace(/\\/g, '/')
+  }
+  return joinProjectPath(projectRoot, t)
+}
+
+/**
+ * ``path:line:col: error|warning: message`` or ``path:line: error|warning:`` (matches HEMTT / rustc-style lines).
+ */
+function parseGccStyleDiagnosticLine(projectRoot: string, line: string): HemttDiagnostic | null {
+  const sevMatch = /:\s*(error|warning|note|help)\s*:\s*(.+)$/.exec(line)
+  if (!sevMatch) return null
+  const prefix = line.slice(0, sevMatch.index)
+  const two = /:(\d+):(\d+)$/.exec(prefix)
+  if (two) {
+    const filePart = prefix.slice(0, two.index)
+    if (!filePart.trim()) return null
+    const ln = parseInt(two[1], 10)
+    const col = parseInt(two[2], 10)
+    return {
+      severity: normalizeDiagSeverity(sevMatch[1]),
+      message: sevMatch[2].trim(),
+      file: resolveDiagnosticFile(projectRoot, filePart.trim()),
+      line: Number.isFinite(ln) ? ln : undefined,
+      column: Number.isFinite(col) ? col : undefined,
+    }
+  }
+  const one = /:(\d+)$/.exec(prefix)
+  if (!one) return null
+  const filePart = prefix.slice(0, one.index)
+  if (!filePart.trim()) return null
+  const ln = parseInt(one[1], 10)
+  return {
+    severity: normalizeDiagSeverity(sevMatch[1]),
+    message: sevMatch[2].trim(),
+    file: resolveDiagnosticFile(projectRoot, filePart.trim()),
+    line: Number.isFinite(ln) ? ln : undefined,
+  }
 }
 
 function applyHemttMarkers(
@@ -73,6 +128,27 @@ function formatSize(n: number | null | undefined): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function parentDirRel(relPosix: string): string {
+  const parts = relPosix.split('/').filter(Boolean)
+  if (parts.length <= 1) return ''
+  return parts.slice(0, -1).join('/')
+}
+
+function fileBasename(relPosix: string): string {
+  const parts = relPosix.split('/').filter(Boolean)
+  return parts.length ? parts[parts.length - 1]! : relPosix
+}
+
+/** Single path segment only (no folders in the name field). */
+function sanitizeFileLabel(raw: string): string | null {
+  const t = raw.trim()
+  if (!t) return null
+  if (t.includes('/') || t.includes('\\')) return null
+  if (t === '.' || t === '..') return null
+  if (t.includes('\0')) return null
+  return t
+}
+
 /** Depth-first: first file node in the same order as the tree UI. */
 function firstFileRelDepthFirst(node: ProjectTreeNode): string | null {
   if (node.kind === 'file') return node.relPath || null
@@ -101,6 +177,9 @@ function TreeBranch({
   toggle,
   selectedRel,
   onSelectFile,
+  disabled,
+  onRequestNewFile,
+  onRequestRename,
 }: {
   node: ProjectTreeNode
   depth: number
@@ -108,6 +187,9 @@ function TreeBranch({
   toggle: (rel: string) => void
   selectedRel: string | null
   onSelectFile: (rel: string) => void
+  disabled?: boolean
+  onRequestNewFile: (dirRel: string) => void
+  onRequestRename: (fileRel: string) => void
 }) {
   const isDir = node.kind === 'dir'
   const rel = node.relPath
@@ -119,28 +201,52 @@ function TreeBranch({
       style={{ paddingLeft: depth <= 2 ? depth * 8 : 16 + (depth - 2) * 2 }}
     >
       {isDir ? (
-        <button
-          type="button"
-          className="mission-tree-row mission-tree-row-dir"
-          onClick={() => toggle(rel)}
-          aria-expanded={open}
-        >
-          <span className="mission-tree-toggle" aria-hidden />
-          <span className="mission-tree-icon mission-tree-icon-folder" aria-hidden />
-          <span className="mission-tree-name">{node.name}</span>
-          {node.truncated ? <span className="mission-tree-meta">…</span> : null}
-        </button>
+        <div className="mission-tree-line">
+          <button
+            type="button"
+            className="mission-tree-row mission-tree-row-dir mission-tree-row-main"
+            onClick={() => toggle(rel)}
+            aria-expanded={open}
+          >
+            <span className="mission-tree-toggle" aria-hidden />
+            <span className="mission-tree-icon mission-tree-icon-folder" aria-hidden />
+            <span className="mission-tree-name">{node.name}</span>
+            {node.truncated ? <span className="mission-tree-meta">…</span> : null}
+          </button>
+          {!disabled ? (
+            <button
+              type="button"
+              className="mission-tree-row-tool btn btn-ghost btn-sm"
+              aria-label="Add file in this folder"
+              onClick={() => onRequestNewFile(rel)}
+            >
+              <FontAwesomeIcon icon={faFileCirclePlus} />
+            </button>
+          ) : null}
+        </div>
       ) : (
-        <button
-          type="button"
-          className={`mission-tree-row mission-tree-row-file${selectedRel === rel ? ' is-selected' : ''}`}
-          onClick={() => onSelectFile(rel)}
-        >
-          <span className="mission-tree-toggle mission-tree-toggle-spacer" aria-hidden />
-          <span className="mission-tree-icon mission-tree-icon-file" aria-hidden />
-          <span className="mission-tree-name">{node.name}</span>
-          {node.size != null ? <span className="mission-tree-meta">{formatSize(node.size)}</span> : null}
-        </button>
+        <div className="mission-tree-line">
+          <button
+            type="button"
+            className={`mission-tree-row mission-tree-row-file mission-tree-row-main${selectedRel === rel ? ' is-selected' : ''}`}
+            onClick={() => onSelectFile(rel)}
+          >
+            <span className="mission-tree-toggle mission-tree-toggle-spacer" aria-hidden />
+            <span className="mission-tree-icon mission-tree-icon-file" aria-hidden />
+            <span className="mission-tree-name">{node.name}</span>
+            {node.size != null ? <span className="mission-tree-meta">{formatSize(node.size)}</span> : null}
+          </button>
+          {!disabled ? (
+            <button
+              type="button"
+              className="mission-tree-row-tool btn btn-ghost btn-sm"
+              aria-label="Rename this file"
+              onClick={() => onRequestRename(rel)}
+            >
+              <FontAwesomeIcon icon={faPen} />
+            </button>
+          ) : null}
+        </div>
       )}
       {isDir && open && node.children?.length ? (
         <ul className="mission-tree-list mission-tree-nested">
@@ -153,6 +259,9 @@ function TreeBranch({
               toggle={toggle}
               selectedRel={selectedRel}
               onSelectFile={onSelectFile}
+              disabled={disabled}
+              onRequestNewFile={onRequestNewFile}
+              onRequestRename={onRequestRename}
             />
           ))}
         </ul>
@@ -190,6 +299,16 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
   const lintSeqRef = useRef(0)
   const selectedRelRef = useRef<string | null>(null)
   const initialTreeSelectionDoneRef = useRef(false)
+  const jumpTargetRef = useRef<{ rel: string; line: number; column?: number } | null>(null)
+  const [jumpNonce, setJumpNonce] = useState(0)
+  type PathDialogState = { kind: 'new'; parentRel: string } | { kind: 'rename'; fileRel: string }
+  const [pathDialog, setPathDialog] = useState<PathDialogState | null>(null)
+  const [pathDialogInput, setPathDialogInput] = useState('')
+  const [pathActionErr, setPathActionErr] = useState<string | null>(null)
+  const [pathActionBusy, setPathActionBusy] = useState(false)
+  const pathInputRef = useRef<HTMLInputElement>(null)
+  const pathDialogTitleId = useId()
+  const pathDialogFieldId = useId()
 
   useEffect(() => {
     let cancelled = false
@@ -221,6 +340,16 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
     }
   }, [projectRoot])
 
+  const reloadTreeOnly = useCallback(async () => {
+    try {
+      const res = await fetchMissionProjectTree(projectRoot)
+      setTree(res.tree)
+      setTruncated(Boolean(res.truncated))
+    } catch {
+      /* keep existing tree */
+    }
+  }, [projectRoot])
+
   useEffect(() => {
     void loadTree()
   }, [loadTree])
@@ -236,14 +365,89 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
     })
   }, [])
 
+  const closePathDialog = useCallback(() => {
+    setPathDialog(null)
+    setPathDialogInput('')
+    setPathActionErr(null)
+    setPathActionBusy(false)
+  }, [])
+
+  const beginNewFile = useCallback(
+    (parentRel: string) => {
+      if (disabled) return
+      setPathActionErr(null)
+      setPathDialog({ kind: 'new', parentRel })
+      setPathDialogInput('')
+    },
+    [disabled],
+  )
+
+  const beginRenameFile = useCallback(
+    (fileRel: string) => {
+      if (disabled) return
+      if (dirty && selectedRelRef.current === fileRel) {
+        setFileErr('Save your changes before renaming this file.')
+        return
+      }
+      setPathActionErr(null)
+      setPathDialog({ kind: 'rename', fileRel })
+      setPathDialogInput(fileBasename(fileRel))
+    },
+    [disabled, dirty],
+  )
+
+  useEffect(() => {
+    if (!pathDialog) return
+    const id = requestAnimationFrame(() => {
+      pathInputRef.current?.focus()
+      pathInputRef.current?.select()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [pathDialog])
+
+  useEffect(() => {
+    if (!pathDialog) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closePathDialog()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pathDialog, closePathDialog])
+
   const editorLanguage =
     selectedRel && useSyntaxHighlighting ? missionResourceLanguage(selectedRel) : 'plaintext'
 
   const openFile = useCallback(
-    async (rel: string) => {
+    async (rel: string, focus?: { line?: number; column?: number }) => {
       if (rel === selectedRelRef.current) {
+        if (focus?.line != null) {
+          jumpTargetRef.current = { rel, line: focus.line, column: focus.column }
+          setExpanded((prev) => {
+            const next = new Set(prev)
+            for (const dirRel of ancestorDirRelPathsForFile(rel)) {
+              next.add(dirRel)
+            }
+            return next
+          })
+          setJumpNonce((n) => n + 1)
+        }
         return
       }
+      if (focus?.line != null) {
+        jumpTargetRef.current = { rel, line: focus.line, column: focus.column }
+      } else {
+        jumpTargetRef.current = null
+      }
+      setExpanded((prev) => {
+        const next = new Set(prev)
+        for (const dirRel of ancestorDirRelPathsForFile(rel)) {
+          next.add(dirRel)
+        }
+        return next
+      })
       lintSeqRef.current += 1
       const shell = monacoShellRef.current
       const m = shell?.editor.getModel()
@@ -269,6 +473,84 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
     },
     [projectRoot],
   )
+
+  const confirmPathDialog = useCallback(async () => {
+    if (!pathDialog || pathActionBusy) return
+    const label = sanitizeFileLabel(pathDialogInput)
+    if (!label) {
+      setPathActionErr('Enter a valid file name.')
+      return
+    }
+    setPathActionBusy(true)
+    setPathActionErr(null)
+    try {
+      if (pathDialog.kind === 'new') {
+        const rel = pathDialog.parentRel ? `${pathDialog.parentRel}/${label}` : label
+        const abs = joinProjectPath(projectRoot, rel)
+        await Util.createFile(abs, '')
+        await reloadTreeOnly()
+        setExpanded((prev) => {
+          const next = new Set(prev)
+          for (const d of ancestorDirRelPathsForFile(rel)) {
+            next.add(d)
+          }
+          return next
+        })
+        closePathDialog()
+        void openFile(rel)
+        return
+      }
+      const oldRel = pathDialog.fileRel
+      if (dirty && selectedRelRef.current === oldRel) {
+        setPathActionErr('Save your changes before renaming this file.')
+        return
+      }
+      const parent = parentDirRel(oldRel)
+      const newRel = parent ? `${parent}/${label}` : label
+      if (newRel === oldRel) {
+        closePathDialog()
+        return
+      }
+      const fromAbs = joinProjectPath(projectRoot, oldRel)
+      const toAbs = joinProjectPath(projectRoot, newRel)
+      await Util.renameFile(fromAbs, toAbs)
+      await reloadTreeOnly()
+      if (selectedRelRef.current === oldRel) {
+        setSelectedRel(newRel)
+      }
+      closePathDialog()
+    } catch (e) {
+      setPathActionErr(e instanceof Error ? e.message : 'Something went wrong.')
+    } finally {
+      setPathActionBusy(false)
+    }
+  }, [
+    pathDialog,
+    pathDialogInput,
+    pathActionBusy,
+    projectRoot,
+    reloadTreeOnly,
+    closePathDialog,
+    openFile,
+    dirty,
+  ])
+
+  useEffect(() => {
+    if (fileLoading || !monacoReady || !selectedRel) return
+    const j = jumpTargetRef.current
+    if (!j || j.rel !== selectedRel) return
+    jumpTargetRef.current = null
+    const shell = monacoShellRef.current
+    if (!shell) return
+    const line = Math.max(1, j.line)
+    const col = Math.max(1, j.column ?? 1)
+    const run = () => {
+      shell.editor.setPosition({ lineNumber: line, column: col })
+      shell.editor.revealLineInCenter(line)
+      shell.editor.focus()
+    }
+    requestAnimationFrame(run)
+  }, [selectedRel, fileLoading, monacoReady, fileContent, jumpNonce])
 
   const onMonacoMount: OnMount = useCallback((editor, monaco) => {
     monacoShellRef.current = { editor, monaco }
@@ -391,10 +673,77 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
         <aside className="mission-resource-sidebar">
           <div className="mission-resource-sidebar-head">
             <span className="mission-resource-sidebar-title">Files</span>
-            <button type="button" className="btn btn-ghost btn-sm" disabled={disabled} onClick={() => void loadTree()}>
-              Refresh
-            </button>
+            <div className="mission-resource-sidebar-tools">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={disabled}
+                onClick={() => beginNewFile(selectedRel ? parentDirRel(selectedRel) : '')}
+              >
+                New file
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={disabled} onClick={() => void loadTree()}>
+                Refresh
+              </button>
+            </div>
           </div>
+          {pathDialog ? (
+            <div
+              className="mission-resource-path-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={pathDialogTitleId}
+            >
+              <p id={pathDialogTitleId} className="mission-resource-path-sheet-title">
+                {pathDialog.kind === 'new' ? 'New file' : 'Rename file'}
+              </p>
+              <label htmlFor={pathDialogFieldId} className="mission-resource-path-sheet-label">
+                Name
+              </label>
+              <input
+                ref={pathInputRef}
+                id={pathDialogFieldId}
+                type="text"
+                className="field-input mission-resource-path-sheet-input"
+                autoComplete="off"
+                value={pathDialogInput}
+                disabled={pathActionBusy}
+                onChange={(e) => setPathDialogInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void confirmPathDialog()
+                  }
+                }}
+              />
+              {pathDialog.kind === 'new' && pathDialog.parentRel ? (
+                <p className="mission-resource-path-sheet-hint">Folder: {pathDialog.parentRel}/</p>
+              ) : null}
+              {pathActionErr ? (
+                <p className="form-banner form-banner-error mission-resource-path-sheet-err" role="alert">
+                  {pathActionErr}
+                </p>
+              ) : null}
+              <div className="mission-resource-path-sheet-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={pathActionBusy}
+                  onClick={() => void confirmPathDialog()}
+                >
+                  {pathDialog.kind === 'new' ? 'Create' : 'Rename'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={pathActionBusy}
+                  onClick={() => closePathDialog()}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
           {truncated ? (
             <p className="mission-resource-truncate-note">Large tree truncated for performance.</p>
           ) : null}
@@ -407,6 +756,9 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
                 toggle={toggle}
                 selectedRel={selectedRel}
                 onSelectFile={(rel) => void openFile(rel)}
+                disabled={disabled}
+                onRequestNewFile={beginNewFile}
+                onRequestRename={beginRenameFile}
               />
             </ul>
           </div>
@@ -426,14 +778,24 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
             >
               <div className="mission-resource-file-toolbar">
                 <code className="mission-resource-path">{selectedRel}</code>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  disabled={disabled || savingFile || fileLoading || !dirty}
-                  onClick={() => void saveFile()}
-                >
-                  {savingFile ? 'Saving…' : 'Save file'}
-                </button>
+                <div className="mission-resource-file-toolbar-actions">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={disabled || fileLoading}
+                    onClick={() => beginRenameFile(selectedRel)}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={disabled || savingFile || fileLoading || !dirty}
+                    onClick={() => void saveFile()}
+                  >
+                    {savingFile ? 'Saving…' : 'Save file'}
+                  </button>
+                </div>
               </div>
               {fileErr ? (
                 <p className="form-banner form-banner-error mission-resource-file-err" role="alert">
@@ -476,12 +838,53 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
                     <aside className="mission-resource-problems" aria-label="Project check results">
                       <div className="mission-resource-problems-head">
                         <span className="mission-resource-problems-title">Project check</span>
-                        {lintRunning ? <span className="mission-resource-problems-status">Working…</span> : null}
+                        {lintRunning ? (
+                          <span className="mission-resource-problems-status mission-resource-problems-status-busy">
+                            <Spinner size="sm" color="var(--text-muted)" aria-label="Checking project" />
+                          </span>
+                        ) : null}
                       </div>
                       {lintToolError ? (
-                        <p className="mission-resource-problems-banner" role="alert">
-                          {lintToolError}
-                        </p>
+                        <div className="mission-resource-problems-banner" role="alert">
+                          {lintToolError.split('\n').map((errLine, li) => {
+                            const parsed = parseGccStyleDiagnosticLine(projectRoot, errLine)
+                            const rel =
+                              parsed?.file && parsed.line != null
+                                ? relFromProjectRoot(projectRoot, parsed.file)
+                                : null
+                            const sevIdx =
+                              rel && parsed?.line != null
+                                ? /:\s*(error|warning|note|help)\s*:\s*/i.exec(errLine)?.index
+                                : undefined
+                            const locEnd =
+                              rel && parsed?.line != null && sevIdx != null && sevIdx > 0
+                                ? sevIdx
+                                : null
+                            const focusLine = parsed?.line
+                            const focusCol = parsed?.column
+                            return (
+                              <Fragment key={li}>
+                                {li > 0 ? <br /> : null}
+                                {locEnd != null && rel && focusLine != null ? (
+                                  <p className="mission-resource-problems-banner-line">
+                                    <button
+                                      type="button"
+                                      className="mission-resource-problems-banner-link"
+                                      onClick={() =>
+                                        void openFile(rel, { line: focusLine, column: focusCol })
+                                      }
+                                    >
+                                      {errLine.slice(0, locEnd)}
+                                    </button>
+                                    <span>{errLine.slice(locEnd)}</span>
+                                  </p>
+                                ) : (
+                                  <p className="mission-resource-problems-banner-line">{errLine}</p>
+                                )}
+                              </Fragment>
+                            )
+                          })}
+                        </div>
                       ) : null}
                       {!lintRunning && !lintToolError && lintDiagnostics.length === 0 ? (
                         <p className="mission-resource-problems-empty">No issues reported for this folder.</p>
@@ -501,7 +904,11 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
                                   className="mission-resource-problems-row"
                                   disabled={!rel}
                                   onClick={() => {
-                                    if (rel) void openFile(rel)
+                                    if (!rel) return
+                                    void openFile(
+                                      rel,
+                                      d.line != null ? { line: d.line, column: d.column } : undefined,
+                                    )
                                   }}
                                 >
                                   <span

@@ -15,6 +15,7 @@ import { handleFileSetContents } from './handlers/handleFileSetContents';
 import { handleFileAppendContents } from './handlers/handleFileAppendContents';
 import { handleFileDelete } from './handlers/handleFileDelete';
 import { handleFileCreate } from './handlers/handleFileCreate';
+import { handleFileRename } from './handlers/handleFileRename';
 import { handleFileOrDirectoryExists } from './handlers/handleFileOrDirectoryExists';
 import { handleShowOpenDialog } from './handlers/handleShowOpenDialog';
 import { handleListDirectory } from './handlers/handleListDirectory';
@@ -84,6 +85,7 @@ export type PredefinedIPC =
 | 'file-append-contents'
 | 'file-delete'
 | 'file-create'
+| 'file-rename'
 | 'file-or-directory-exists'
 | 'show-open-dialog'
 | 'list-directory'
@@ -191,6 +193,12 @@ export class IPCAPI {
         // Back-compat alias
         this.registerIPC('create-file', (event, args) =>
             handleFileCreate(this.ctx, event, args)
+        );
+        this.registerIPC('file-rename', (event, args) =>
+            handleFileRename(this.ctx, event, args)
+        );
+        this.registerIPC('rename-file', (event, args) =>
+            handleFileRename(this.ctx, event, args)
         );
         this.registerIPC('file-or-directory-exists', (event, args) =>
             handleFileOrDirectoryExists(this.ctx, event, args)

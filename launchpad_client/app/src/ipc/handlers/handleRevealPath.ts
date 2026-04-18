@@ -21,10 +21,22 @@ export async function handleRevealPath(
   }
 
   const resolved = path.resolve(target);
-  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
-    return { ok: false, error: 'Path is not an existing file.' };
+  if (!fs.existsSync(resolved)) {
+    return { ok: false, error: 'That path could not be found.' };
   }
 
-  shell.showItemInFolder(resolved);
-  return { ok: true };
+  const stat = fs.statSync(resolved);
+  if (stat.isFile()) {
+    shell.showItemInFolder(resolved);
+    return { ok: true };
+  }
+  if (stat.isDirectory()) {
+    const errMsg = await shell.openPath(resolved);
+    if (errMsg) {
+      return { ok: false, error: errMsg };
+    }
+    return { ok: true };
+  }
+
+  return { ok: false, error: 'That path could not be opened.' };
 }

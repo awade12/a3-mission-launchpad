@@ -2,13 +2,15 @@
  * File/Folder Input [File context/text path hybrid]
  *
  * This component is a hybrid of a file input and a text input. It allows the user to select a file or folder, or to
- * enter a text path, with backend validation to ensure the path is valid on input, which incorporated IPC.
+ * enter a text path. With `commit="ifExists"`, the parent is only updated after the path exists on disk (IPC check).
+ * With `commit="always"`, the parent mirrors the text field like a normal controlled input.
  *
  */
 
 import { faFile, faFolderOpen } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { getElectronIpc } from '../electronIpc';
 
 type FileFolder = 'file' | 'folder';
@@ -17,9 +19,26 @@ type Props = {
   value: string;
   type: FileFolder;
   onChange: (value: string) => void;
+  /** `ifExists`: notify parent only when the path exists locally. `always`: notify on every edit (typical for settings). */
+  commit?: 'ifExists' | 'always';
+  placeholder?: string;
+  name?: string;
+  autoComplete?: string;
+  disabled?: boolean;
+  inputClassName?: string;
 };
 
-export function FileFolderInput({ value, type, onChange }: Props) {
+export function FileFolderInput({
+  value,
+  type,
+  onChange,
+  commit = 'ifExists',
+  placeholder,
+  name,
+  autoComplete,
+  disabled = false,
+  inputClassName,
+}: Props) {
   const [path, setPath] = useState(value);
   const ipc = getElectronIpc();
   const onChangeRef = useRef(onChange);
@@ -30,17 +49,17 @@ export function FileFolderInput({ value, type, onChange }: Props) {
   }, [value]);
 
   useEffect(() => {
-    if (!ipc) return;
+    if (commit === 'always' || !ipc) return;
     void (async () => {
       const res = (await ipc.invoke('file-or-directory-exists', { path })) as { exists: boolean };
       if (res.exists) {
         onChangeRef.current(path);
       }
     })();
-  }, [path, ipc]);
+  }, [path, ipc, commit]);
 
   const pickFromExplorer = () => {
-    if (!ipc) return;
+    if (!ipc || disabled) return;
     void (async () => {
       const res = (await ipc.invoke('show-open-dialog', {
         mode: type === 'folder' ? 'folder' : 'file',
@@ -48,22 +67,38 @@ export function FileFolderInput({ value, type, onChange }: Props) {
       })) as { canceled: boolean; path: string | null };
       if (!res.canceled && res.path) {
         setPath(res.path);
+        if (commit === 'always') {
+          onChangeRef.current(res.path);
+        }
       }
     })();
   };
 
+  const onTextChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setPath(v);
+    if (commit === 'always') {
+      onChangeRef.current(v);
+    }
+  };
+
   const browseLabel = type === 'folder' ? 'Choose folder' : 'Choose file';
   const browseIcon = type === 'folder' ? faFolderOpen : faFile;
+  const fieldClass = ['file-folder-input__field', inputClassName].filter(Boolean).join(' ');
+  const shellDisabled = disabled || !ipc;
 
   return (
     <div className="file-folder-input">
       <input
-        className="file-folder-input__field"
+        className={fieldClass}
         type="text"
+        name={name}
         value={path}
-        onChange={(e) => setPath(e.target.value)}
+        onChange={onTextChange}
         spellCheck={false}
-        disabled={!ipc}
+        disabled={shellDisabled}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
       />
       <button
         type="button"
@@ -71,7 +106,7 @@ export function FileFolderInput({ value, type, onChange }: Props) {
         onClick={pickFromExplorer}
         title={browseLabel}
         aria-label={browseLabel}
-        disabled={!ipc}
+        disabled={shellDisabled}
       >
         <FontAwesomeIcon icon={browseIcon} />
       </button>

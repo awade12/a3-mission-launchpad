@@ -15,6 +15,7 @@
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.3.0",
     "@monaco-editor/react": "^4.7.0",
+    "@react-three/fiber": "^9.6.0",
     "@shikijs/core": "^4.0.2",
     "@shikijs/engine-oniguruma": "^4.0.2",
     "@shikijs/langs": "^4.0.2",
@@ -22,7 +23,8 @@
     "@shikijs/themes": "^4.0.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "shiki": "^4.0.2"
+    "shiki": "^4.0.2",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

@@ -3,11 +3,18 @@ const path = require('node:path');
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
-/** Packaged layout under repo ``A3LaunchPad/`` (static UI payload). */
+/** Packaged layout under repo ``A3LaunchPad/`` (static UI payload + companion mod). */
 const a3LaunchPad = path.resolve(__dirname, '..', '..', 'A3LaunchPad');
 const launchpadWebDist = path.join(a3LaunchPad, 'web_dist');
+const stagedCompanionMod = path.join(a3LaunchPad, 'mod');
 const extraResource = [];
 if (fs.existsSync(launchpadWebDist)) extraResource.push(launchpadWebDist);
+/** Mirrors runtime ``launchpad_data``: ``mod/addons/*.pbo`` plus extension binary beside ``mod/``. */
+if (fs.existsSync(stagedCompanionMod)) extraResource.push(stagedCompanionMod);
+for (const name of ['A3_LAUNCHPAD_EXT_x64.dll', 'A3_LAUNCHPAD_EXT_x64.so']) {
+  const abs = path.join(a3LaunchPad, name);
+  if (fs.existsSync(abs)) extraResource.push(abs);
+}
 
 /** Set by ``util.py`` to a fresh ``build/electron-forge-*`` path so Windows never has to delete a locked ``app/out`` tree. */
 const outDir = process.env.LAUNCHPAD_ELECTRON_OUT

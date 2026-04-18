@@ -17,6 +17,7 @@ import { ScriptEditorModal } from '../components/IntegratedScriptEditor'
 import { MissionGitHubModal } from '../components/MissionGitHubModal'
 import Util, { PboOutputExistsError } from '../Util'
 import { VSCodeIcon } from '../components/CustomIcons/VSCodeIcon'
+import { FileFolderInput } from '../components/FileFolderInput'
 import { MissionBuildPage } from './MissionBuildPage'
 
 function fullMissionName(s: ManagedScenario) {
@@ -49,6 +50,12 @@ function defaultPboOutputFolder(projectPath: string | undefined): string {
   if (!root) return ''
   const sep = /\\/.test(p) && !/\//.test(p) ? '\\' : '/'
   return `${root.replace(/[/\\]+$/, '')}${sep}output`
+}
+
+/** Stable row identity for mod list UI (legacy rows may omit ``id``, which broke per-row toggles). */
+function missionModRowKey(m: MissionLaunchMod): string {
+  const id = typeof m.id === 'string' ? m.id.trim() : ''
+  return id || m.path
 }
 
 type MissionListPageProps = {
@@ -217,12 +224,12 @@ export function MissionListPage({ onOpenSettings }: MissionListPageProps) {
     }
   }
 
-  async function toggleMissionMod(id: string, enabled: boolean) {
+  async function toggleMissionMod(rowKey: string, enabled: boolean) {
     if (!modsMission) return
     setModsBusy(true)
     setModsErr(null)
     try {
-      const merged = modsRows.map((m) => (m.id === id ? { ...m, enabled } : m))
+      const merged = modsRows.map((m) => (missionModRowKey(m) === rowKey ? { ...m, enabled } : m))
       const saved = await saveManagedScenarioMods(modsMission.id, merged)
       setModsRows(saved)
       setScenarios((prev) => prev.map((x) => (x.id === modsMission.id ? { ...x, launch_mods: saved } : x)))
@@ -502,13 +509,13 @@ export function MissionListPage({ onOpenSettings }: MissionListPageProps) {
                       </thead>
                       <tbody>
                         {modsRows.map((m) => (
-                          <tr key={m.id}>
+                          <tr key={missionModRowKey(m)}>
                             <td>
                               <input
                                 type="checkbox"
                                 checked={m.enabled !== false}
                                 disabled={modsBusy}
-                                onChange={(e) => void toggleMissionMod(m.id, e.target.checked)}
+                                onChange={(e) => void toggleMissionMod(missionModRowKey(m), e.target.checked)}
                                 aria-label={`Enable mod ${m.path}`}
                               />
                             </td>
@@ -631,13 +638,14 @@ export function MissionListPage({ onOpenSettings }: MissionListPageProps) {
 
                 <label className="field">
                   <span className="field-label">Output folder (optional)</span>
-                  <input
-                    type="text"
-                    className="field-input"
+                  <FileFolderInput
+                    type="folder"
+                    commit="always"
                     name="pbo_output"
                     autoComplete="off"
+                    inputClassName="field-input"
                     value={pboOutDir}
-                    onChange={(ev) => setPboOutDir(ev.target.value)}
+                    onChange={(v) => setPboOutDir(v)}
                     disabled={pboBusy}
                     placeholder="mission_projects/output (default)"
                   />

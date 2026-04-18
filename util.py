@@ -267,6 +267,7 @@ def _find_extension_binary() -> Path | None:
         EXT_ROOT / "build",
         EXT_ROOT / "ci-build",
         REPO / "launchpad_mod" / "bin" / "mod",
+        A3,
         A3 / "mod",
     )
     for root in search_roots:
@@ -300,6 +301,8 @@ def _find_addon_pbo() -> Path | None:
 
 
 def stage_mod_deliverables() -> None:
+    """Stage ``A3LaunchPad/mod/addons/*.pbo`` and native binaries on ``A3LaunchPad/`` (sibling of ``mod/``)."""
+    a3_root = A3
     mod_root = A3 / "mod"
     addons_dir = mod_root / "addons"
     addons_dir.mkdir(parents=True, exist_ok=True)
@@ -307,8 +310,9 @@ def stage_mod_deliverables() -> None:
     ext = _find_extension_binary()
     if ext is not None:
         dest_name = "A3_LAUNCHPAD_EXT_x64.dll" if os.name == "nt" else "A3_LAUNCHPAD_EXT_x64.so"
-        shutil.copy2(ext, mod_root / dest_name)
-        print(f"Staged extension: {ext.name} -> {mod_root / dest_name}")
+        a3_root.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ext, a3_root / dest_name)
+        print(f"Staged extension: {ext.name} -> {a3_root / dest_name}")
     else:
         print(
             "Warning: native extension binary not found. Build the CMake target first.",
@@ -390,7 +394,7 @@ def run_build(*, rebuild_pbo: bool = False) -> None:
     stage_electron_app()
     print(
         f"Build complete: web UI in {A3 / 'web_dist'}, "
-        f"mod under {A3 / 'mod'}, Electron under {A3 / 'app'}"
+        f"companion mod under {A3 / 'mod'}, native extension on {A3}, Electron under {A3 / 'app'}"
     )
 
 

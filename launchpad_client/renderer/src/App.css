@@ -31,6 +31,50 @@
   }
 }
 
+/* Spinner (see Spinner.tsx) */
+@keyframes lp-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lp-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  box-sizing: border-box;
+  width: var(--lp-spinner-size, clamp(14px, 2.6vmin, 20px));
+  height: var(--lp-spinner-size, clamp(14px, 2.6vmin, 20px));
+  border-radius: 50%;
+  border-style: solid;
+  border-width: max(2px, calc(var(--lp-spinner-size, 16px) * 0.11));
+  border-color: color-mix(in srgb, var(--lp-spinner-color, #ffffff) 28%, transparent);
+  border-top-color: var(--lp-spinner-color, #ffffff);
+  animation: lp-spinner-spin 0.72s linear infinite;
+}
+
+.lp-spinner--sm {
+  --lp-spinner-size: clamp(12px, 1.9vmin, 15px);
+}
+
+.lp-spinner--md {
+  --lp-spinner-size: clamp(14px, 2.6vmin, 20px);
+}
+
+.lp-spinner--lg {
+  --lp-spinner-size: clamp(18px, 3.2vmin, 26px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-spinner {
+    animation-duration: 1.35s;
+  }
+}
+
+.btn-primary .btn-busy-spinner {
+  --lp-spinner-color: #ffffff;
+}
+
 .app-shell {
   flex: 1;
   min-height: 0;
@@ -1231,6 +1275,67 @@
   color: var(--text-muted);
 }
 
+.mission-resource-sidebar-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.mission-resource-path-sheet {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.mission-resource-path-sheet-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.mission-resource-path-sheet-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.mission-resource-path-sheet-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+}
+
+.mission-resource-path-sheet-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.mission-resource-path-sheet-err {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.mission-resource-path-sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mission-resource-file-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .mission-resource-truncate-note {
   margin: 0;
   padding: 8px 14px;
@@ -1440,6 +1545,12 @@
   color: var(--text-muted);
 }
 
+.mission-resource-problems-status-busy {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
 .mission-resource-problems-banner {
   margin: 0;
   padding: 8px 12px;
@@ -1447,6 +1558,32 @@
   color: var(--text-heading);
   background: rgba(191, 42, 42, 0.08);
   border-bottom: 1px solid var(--border);
+}
+
+.mission-resource-problems-banner-line {
+  margin: 0;
+  font-size: inherit;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.mission-resource-problems-banner-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  text-decoration: underline;
+  text-align: left;
+  cursor: pointer;
+  word-break: break-all;
+}
+
+.mission-resource-problems-banner-link:hover {
+  color: var(--text-heading);
 }
 
 .mission-resource-problems-empty {
@@ -1830,6 +1967,32 @@
   list-style: none;
 }
 
+.mission-tree-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin: 1px 0;
+}
+
+.mission-tree-line .mission-tree-row-main {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.mission-tree-row-tool {
+  flex-shrink: 0;
+  padding: 2px 6px !important;
+  min-height: 28px;
+  line-height: 1;
+  opacity: 0.72;
+}
+
+.mission-tree-line:hover .mission-tree-row-tool {
+  opacity: 1;
+}
+
 .mission-tree-row {
   display: flex;
   align-items: center;
@@ -1883,7 +2046,7 @@
   visibility: hidden;
 }
 
-.mission-tree-item.is-expanded > .mission-tree-row-dir .mission-tree-toggle::before {
+.mission-tree-item.is-expanded .mission-tree-row-dir .mission-tree-toggle::before {
   transform: rotate(90deg);
 }
 

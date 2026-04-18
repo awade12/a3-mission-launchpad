@@ -32,7 +32,8 @@ export type IntegratedScriptEditorProps = {
 /**
  * Full-height folder workspace: indexed tree, Monaco editor, and per-file save.
  * Uses the same highlighting and language rules as the mission resource browser.
- * In ``mod`` mode, the browser runs project checks and lists results (see ``MissionResourceBrowser``).
+ * In ``mod`` mode, the browser runs project checks and lists results (see ``MissionResourceBrowser``),
+ * including opening a reported file from a result and scrolling the editor to that line.
  */
 export function IntegratedScriptEditor({ projectRoot, disabled, environment = 'mission' }: IntegratedScriptEditorProps) {
   return (

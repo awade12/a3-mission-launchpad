@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Spinner } from './Spinner'
 import {
   fetchMissionGitLog,
   fetchMissionGitStatus,
@@ -290,9 +291,11 @@ export function MissionGitHubModal({ mission, onClose, onAfterCommit, onOpenSett
                     type="button"
                     className="btn btn-primary"
                     disabled={busy}
+                    aria-busy={busy || undefined}
+                    aria-label={busy ? 'Working' : undefined}
                     onClick={() => void doInit()}
                   >
-                    {busy ? 'Working…' : 'Create repository in mission folder'}
+                    {busy ? <Spinner size="md" aria-hidden className="btn-busy-spinner" /> : 'Create repository in mission folder'}
                   </button>
                   <p className="field-hint mission-github-hint">
                     Runs <code className="mission-edit-code">git init</code> in the mission project path only.
@@ -501,9 +504,11 @@ export function MissionGitHubModal({ mission, onClose, onAfterCommit, onOpenSett
                 type="button"
                 className="btn btn-primary"
                 disabled={busy || !commitMsg.trim() || statusLoading}
+                aria-busy={busy || undefined}
+                aria-label={busy ? 'Working' : undefined}
                 onClick={() => void doCommit()}
               >
-                {busy ? 'Working…' : 'Commit all'}
+                {busy ? <Spinner size="md" aria-hidden className="btn-busy-spinner" /> : 'Commit all'}
               </button>
             ) : null}
             <button

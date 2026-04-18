@@ -6,6 +6,7 @@ import {
   updateSettings,
   type LaunchpadSettings,
 } from '../api/launchpad'
+import { FileFolderInput } from '../components/FileFolderInput'
 import { getElectronIpc } from '../electronIpc'
 
 type CheckUpdatesOk = {
@@ -22,6 +23,19 @@ type CheckUpdatesResult = CheckUpdatesOk | { ok: false; message?: string }
 
 function trimField(v: string | undefined | null): string {
   return (v ?? '').trim()
+}
+
+/** Matches an empty form before any successful load (used so Save still works if load failed). */
+const EMPTY_SETTINGS_BASELINE: LaunchpadSettings = {
+  arma3_path: '',
+  arma3_tools_path: '',
+  arma3_profile_path: '',
+  arma3_appdata_path: '',
+  default_author: '',
+  github_new_repo_visibility: 'private',
+  remote_servers: [],
+  logs_remote_default_server_id: '',
+  logs_remote_default_folder: '/home/steam/arma3',
 }
 
 function sameSettings(a: LaunchpadSettings, b: LaunchpadSettings) {
@@ -97,7 +111,7 @@ export function SettingsPage() {
     logs_remote_default_folder: trimField(remoteDefaultFolder) || '/home/steam/arma3',
   }
 
-  const dirty = saved ? !sameSettings(draft, saved) : false
+  const dirty = !sameSettings(draft, saved ?? EMPTY_SETTINGS_BASELINE)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -415,72 +429,78 @@ export function SettingsPage() {
         </h2>
         <p className="card-body">
           Save SSH host details for remote log browsing. Passwords and passphrases are never saved and are requested
-          when you connect.
+          when you connect. When you finish editing, use Save at the bottom of the page so everything is remembered.
         </p>
-        <label className="field">
-          <span className="field-label">Default server for remote logs</span>
-          <select
-            className="field-input"
-            value={remoteDefaultServerId}
-            onChange={(e) => {
-              setRemoteDefaultServerId(e.target.value)
-              setSaveOk(false)
-            }}
-          >
-            <option value="">None selected</option>
-            {remoteServers.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.name} ({row.username}@{row.host}:{row.port})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span className="field-label">Default remote logs folder</span>
-          <input
-            className="field-input"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            value={remoteDefaultFolder}
-            onChange={(e) => {
-              setRemoteDefaultFolder(e.target.value)
-              setSaveOk(false)
-            }}
-            placeholder="/home/steam/arma3"
-          />
-          <span className="field-hint">Used by the Logs page when Remote is selected.</span>
-        </label>
+        {loading ? (
+          <p className="card-body">Loading…</p>
+        ) : (
+          <>
+            <label className="field">
+              <span className="field-label">Default server for remote logs</span>
+              <select
+                className="field-input"
+                value={remoteDefaultServerId}
+                onChange={(e) => {
+                  setRemoteDefaultServerId(e.target.value)
+                  setSaveOk(false)
+                }}
+              >
+                <option value="">None selected</option>
+                {remoteServers.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name} ({row.username}@{row.host}:{row.port})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">Default remote logs folder</span>
+              <input
+                className="field-input"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={remoteDefaultFolder}
+                onChange={(e) => {
+                  setRemoteDefaultFolder(e.target.value)
+                  setSaveOk(false)
+                }}
+                placeholder="/home/steam/arma3"
+              />
+              <span className="field-hint">Used by the Logs page when Remote is selected.</span>
+            </label>
 
-        <div className="logging-meta-grid">
-          {remoteServers.length === 0 ? (
-            <p className="card-body">No remote servers saved yet.</p>
-          ) : (
-            remoteServers.map((row) => (
-              <div key={row.id} className="card" style={{ margin: 0 }}>
-                <p className="card-body" style={{ marginBottom: 8 }}>
-                  <strong>{row.name}</strong> - {row.username}@{row.host}:{row.port}
-                </p>
-                <p className="field-hint" style={{ marginTop: 0 }}>
-                  Auth: {row.auth === 'key' ? `Key file (${row.keyPath ?? 'path not set'})` : 'Username + password'}
-                </p>
-                <div className="form-actions">
-                  <button type="button" className="btn btn-ghost" onClick={() => openEditRemoteServerDialog(row)}>
-                    Edit
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={() => removeRemoteServer(row.id)}>
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="form-actions">
-          <button type="button" className="btn btn-primary" onClick={openNewRemoteServerDialog}>
-            Add remote server
-          </button>
-        </div>
+            <div className="logging-meta-grid">
+              {remoteServers.length === 0 ? (
+                <p className="card-body">No remote servers saved yet.</p>
+              ) : (
+                remoteServers.map((row) => (
+                  <div key={row.id} className="card" style={{ margin: 0 }}>
+                    <p className="card-body" style={{ marginBottom: 8 }}>
+                      <strong>{row.name}</strong> - {row.username}@{row.host}:{row.port}
+                    </p>
+                    <p className="field-hint" style={{ marginTop: 0 }}>
+                      Auth: {row.auth === 'key' ? `Key file (${row.keyPath ?? 'path not set'})` : 'Username + password'}
+                    </p>
+                    <div className="form-actions">
+                      <button type="button" className="btn btn-ghost" onClick={() => openEditRemoteServerDialog(row)}>
+                        Edit
+                      </button>
+                      <button type="button" className="btn btn-ghost" onClick={() => removeRemoteServer(row.id)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-primary" onClick={openNewRemoteServerDialog}>
+                Add remote server
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="card form-card" aria-labelledby="paths-heading">
@@ -493,16 +513,16 @@ export function SettingsPage() {
           <>
             <label className="field">
               <span className="field-label">Arma 3 installation folder</span>
-              <input
-                className="field-input"
+              <FileFolderInput
+                type="folder"
+                commit="always"
                 name="arma3_path"
-                type="text"
                 autoComplete="off"
-                spellCheck={false}
                 placeholder="e.g. C:\Program Files (x86)\Steam\steamapps\common\Arma 3"
+                inputClassName="field-input"
                 value={arma3Path}
-                onChange={(e) => {
-                  setArma3Path(e.target.value)
+                onChange={(v) => {
+                  setArma3Path(v)
                   setSaveOk(false)
                 }}
               />
@@ -511,16 +531,16 @@ export function SettingsPage() {
 
             <label className="field">
               <span className="field-label">Arma 3 Tools folder</span>
-              <input
-                className="field-input"
+              <FileFolderInput
+                type="folder"
+                commit="always"
                 name="arma3_tools_path"
-                type="text"
                 autoComplete="off"
-                spellCheck={false}
                 placeholder="e.g. C:\Program Files (x86)\Steam\steamapps\common\Arma 3 Tools"
+                inputClassName="field-input"
                 value={toolsPath}
-                onChange={(e) => {
-                  setToolsPath(e.target.value)
+                onChange={(v) => {
+                  setToolsPath(v)
                   setSaveOk(false)
                 }}
               />
@@ -529,16 +549,16 @@ export function SettingsPage() {
 
             <label className="field">
               <span className="field-label">Arma 3 profile folder</span>
-              <input
-                className="field-input"
+              <FileFolderInput
+                type="folder"
+                commit="always"
                 name="arma3_profile_path"
-                type="text"
                 autoComplete="off"
-                spellCheck={false}
                 placeholder="e.g. C:\Users\You\Documents\Arma 3 - Other Profiles\YourProfileName"
+                inputClassName="field-input"
                 value={profilePath}
-                onChange={(e) => {
-                  setProfilePath(e.target.value)
+                onChange={(v) => {
+                  setProfilePath(v)
                   setSaveOk(false)
                 }}
               />
@@ -551,16 +571,16 @@ export function SettingsPage() {
 
             <label className="field">
               <span className="field-label">Arma 3 Local AppData folder</span>
-              <input
-                className="field-input"
+              <FileFolderInput
+                type="folder"
+                commit="always"
                 name="arma3_appdata_path"
-                type="text"
                 autoComplete="off"
-                spellCheck={false}
                 placeholder="%LOCALAPPDATA%\Arma 3"
+                inputClassName="field-input"
                 value={appdataPath}
-                onChange={(e) => {
-                  setAppdataPath(e.target.value)
+                onChange={(v) => {
+                  setAppdataPath(v)
                   setSaveOk(false)
                 }}
               />
@@ -713,14 +733,14 @@ export function SettingsPage() {
                 {serverAuthInput === 'key' ? (
                   <label className="field">
                     <span className="field-label">Private key file path</span>
-                    <input
-                      type="text"
-                      className="field-input"
-                      value={serverKeyPathInput}
-                      onChange={(e) => setServerKeyPathInput(e.target.value)}
+                    <FileFolderInput
+                      type="file"
+                      commit="always"
                       autoComplete="off"
-                      spellCheck={false}
                       placeholder="e.g. C:\\Users\\You\\.ssh\\id_rsa"
+                      inputClassName="field-input"
+                      value={serverKeyPathInput}
+                      onChange={(v) => setServerKeyPathInput(v)}
                     />
                   </label>
                 ) : null}

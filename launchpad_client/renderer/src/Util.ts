@@ -177,6 +177,48 @@ class Util {
     }
   }
 
+  static async createFile(path: string, contents = '') {
+    const ipc = getElectronIpc()
+    if (ipc) {
+      const data = (await ipc.invoke('file-create', {
+        path,
+        contents,
+      })) as { ok?: boolean; error?: string } | null
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response from desktop API.')
+      }
+      if (typeof data.error === 'string' && data.error.trim()) {
+        throw new Error(data.error)
+      }
+      if (data.ok !== true) {
+        throw new Error('Could not create file')
+      }
+      return
+    }
+    throw new Error('Creating files requires the desktop app.')
+  }
+
+  static async renameFile(fromPath: string, toPath: string) {
+    const ipc = getElectronIpc()
+    if (ipc) {
+      const data = (await ipc.invoke('file-rename', {
+        fromPath,
+        toPath,
+      })) as { ok?: boolean; error?: string } | null
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response from desktop API.')
+      }
+      if (typeof data.error === 'string' && data.error.trim()) {
+        throw new Error(data.error)
+      }
+      if (data.ok !== true) {
+        throw new Error('Could not rename file')
+      }
+      return
+    }
+    throw new Error('Renaming files requires the desktop app.')
+  }
+
   /** One-shot build; returns JSON (no streaming). */
   static async buildMissionPBO(
     projectPath: string,

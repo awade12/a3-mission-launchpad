@@ -26,6 +26,11 @@
         ]
     },
     {
+        "label": "Tools",
+        "submenu": [
+        ]
+    },    
+    {
         "label": "Developer",
         "submenu": [
             { "label": "Open data directory", "id": "open-data-directory" },

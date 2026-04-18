@@ -114,7 +114,7 @@ export default class Launchpad {
 
     this.dataDir = path.join(app.getPath('userData'), 'launchpad_data');
     this.logsDir = path.join(this.dataDir, 'logs');
-    this.mainLogFile = path.join(this.logsDir, 'electron-main.log');
+    this.mainLogFile = path.join(this.logsDir, 'launchpad-main.log');
     this.settingsFile = path.join(this.dataDir, 'settings.json');
     this.managedMissionsFile = path.join(this.dataDir, 'managed_missions.json');
     this.managedModProjectsFile = path.join(this.dataDir, 'managed_mod_projects.json');

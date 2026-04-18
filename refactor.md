@@ -10,9 +10,8 @@ This document tracks the major architecture refactor and where features now live
 - `launchpad_mod`
   - Companion mod and extension.
   - Deliverables:
-    - `A3LaunchPad/mod/addons/a3_launchpad_ext_core.pbo` (HEMTT-built PBO)
-    - `A3LaunchPad/mod/A3_LAUNCHPAD_EXT_x64.dll`
-    - `A3LaunchPad/mod/A3_LAUNCHPAD_EXT_x64.so`
+    - `A3LaunchPad/mod/addons/*.pbo` (HEMTT-built companion addons)
+    - `A3LaunchPad/A3_LAUNCHPAD_EXT_x64.dll` / `A3LaunchPad/A3_LAUNCHPAD_EXT_x64.so` (native extension; sibling of `mod/`)
 - `A3LaunchPad`
   - Source of truth for final deliverables/packaging layout.
 

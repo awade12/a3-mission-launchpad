@@ -142,6 +142,32 @@ function isBusyFsError(err: unknown): boolean {
   return code === 'EBUSY' || code === 'EPERM' || code === 'EACCES';
 }
 
+/** Native extension filenames (CMake ``OUTPUT_NAME`` + platform suffix). */
+const COMPANION_EXT_BINARIES = ['A3_LAUNCHPAD_EXT_x64.dll', 'A3_LAUNCHPAD_EXT_x64.so'] as const;
+
+/**
+ * Copy extension binaries next to ``launchpad_data/mod/`` (same layout as packaged ``resources/``):
+ * ``launchpad_data/A3_LAUNCHPAD_EXT_x64.(dll|so)`` from the parent of the staged mod folder, or legacy path inside the mod folder.
+ */
+function syncCompanionNativeBinaries(stagingModDir: string, dataDir: string): void {
+  const resolvedMod = path.resolve(stagingModDir);
+  const parent = path.dirname(resolvedMod);
+  for (const name of COMPANION_EXT_BINARIES) {
+    const dest = path.join(dataDir, name);
+    for (const base of [parent, resolvedMod]) {
+      const src = path.join(base, name);
+      try {
+        if (fs.existsSync(src) && fs.statSync(src).isFile()) {
+          fs.copyFileSync(src, dest);
+          break;
+        }
+      } catch {
+        // try next base
+      }
+    }
+  }
+}
+
 function mirrorDirectoryBestEffort(sourceDir: string, targetDir: string): { copied: number; busySkipped: number } {
   fs.mkdirSync(targetDir, { recursive: true });
   let copied = 0;
@@ -202,13 +228,17 @@ function syncCompanionModToDataDir(ctx: Launchpad, gameRootRaw: string): { path?
   try {
     fs.mkdirSync(ctx.dataDir, { recursive: true });
     const mirror = mirrorDirectoryBestEffort(stagingSource, dataModPath);
+    syncCompanionNativeBinaries(stagingSource, ctx.dataDir);
     if (!hasCompanionPayload(dataModPath)) {
-      return { warning: 'Companion extension sync completed, but payload was not found under launchpad_data/mod.' };
+      return {
+        warning:
+          'Companion extension sync completed, but addon payload was not found under launchpad_data/mod/addons.',
+      };
     }
     if (mirror.busySkipped > 0) {
       return {
         path: dataModPath,
-        warning: `Companion mod sync reused ${mirror.busySkipped} locked file(s) already in launchpad_data/mod.`,
+        warning: `Companion mod sync reused ${mirror.busySkipped} locked file(s) already under launchpad_data/mod.`,
       };
     }
     return { path: dataModPath };

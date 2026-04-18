@@ -54,14 +54,14 @@ if (WIN32)
   target_link_libraries(A3_LAUNCHPAD_EXT PRIVATE ws2_32)
 endif()
 
-# Ship extension into the packaged mod deliverable tree (repo ``A3LaunchPad/mod``)
-set(_LAUNCHPAD_MOD_BIN "${CMAKE_SOURCE_DIR}/../../A3LaunchPad/mod")
+# Ship extension beside the mod folder: ``A3LaunchPad/A3_LAUNCHPAD_EXT_x64.(dll|so)`` (PBOs under ``A3LaunchPad/mod/addons/``).
+set(_LAUNCHPAD_A3_ROOT "${CMAKE_SOURCE_DIR}/../../A3LaunchPad")
 add_custom_command(TARGET A3_LAUNCHPAD_EXT POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${_LAUNCHPAD_MOD_BIN}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_LAUNCHPAD_A3_ROOT}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:A3_LAUNCHPAD_EXT>
-        "${_LAUNCHPAD_MOD_BIN}/"
-    COMMENT "Copying A3_LAUNCHPAD_EXT to A3LaunchPad/mod"
+        "${_LAUNCHPAD_A3_ROOT}/"
+    COMMENT "Copying A3_LAUNCHPAD_EXT to A3LaunchPad (next to mod/)"
 )
 
 if (UNIX)

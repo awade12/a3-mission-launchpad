@@ -1,10 +1,49 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import Launchpad from '../../Launchpad';
 import { handleTestingLaunch } from './handleTestingLaunch';
 
 type ManagedMissions = Record<string, Record<string, unknown>>;
+
+type MissionLaunchModRow = {
+  id: string;
+  path: string;
+  enabled: boolean;
+  label?: string;
+};
+
+/** Ensures every mod has a non-empty unique id (HTML import and legacy rows often omit id). */
+function normalizeMissionModRows(mods: unknown): { rows: MissionLaunchModRow[]; repaired: boolean } {
+  if (!Array.isArray(mods)) return { rows: [], repaired: false };
+  const used = new Set<string>();
+  const rows: MissionLaunchModRow[] = [];
+  let repaired = false;
+  for (const raw of mods) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const o = raw as Record<string, unknown>;
+    const modPath = typeof o.path === 'string' ? o.path.trim() : '';
+    if (!modPath) continue;
+    let id = typeof o.id === 'string' ? o.id.trim() : '';
+    if (!id || used.has(id)) {
+      id = randomUUID();
+      repaired = true;
+    }
+    used.add(id);
+    const row: MissionLaunchModRow = {
+      id,
+      path: modPath,
+      enabled: o.enabled !== false,
+    };
+    if (typeof o.label === 'string' && o.label.trim()) {
+      row.label = o.label.trim();
+    }
+    rows.push(row);
+  }
+  if (rows.length !== mods.length) repaired = true;
+  return { rows, repaired };
+}
 
 function readManaged(ctx: Launchpad): ManagedMissions {
   try {
@@ -52,10 +91,17 @@ function runGh(cwd: string, args: string[]) {
 export async function handleManagedScenarioModsGet(ctx: Launchpad, _event: Electron.IpcMainInvokeEvent, args: { id?: string }) {
   const missionId = typeof args?.id === 'string' ? args.id.trim() : '';
   if (!missionId) return { error: 'Mission id is required.' };
-  const row = rowForMission(ctx, missionId);
-  if (!row) return { error: 'Mission not found.' };
-  const mods = Array.isArray(row.launch_mods) ? row.launch_mods : [];
-  return { ok: true, mods };
+  const all = readManaged(ctx);
+  const row = all[missionId];
+  if (!row || typeof row !== 'object') return { error: 'Mission not found.' };
+  const raw = Array.isArray(row.launch_mods) ? row.launch_mods : [];
+  const { rows, repaired } = normalizeMissionModRows(raw);
+  if (repaired) {
+    row.launch_mods = rows;
+    all[missionId] = row;
+    writeManaged(ctx, all);
+  }
+  return { ok: true, mods: rows };
 }
 
 export async function handleManagedScenarioModsPost(
@@ -68,11 +114,11 @@ export async function handleManagedScenarioModsPost(
   const all = readManaged(ctx);
   const row = all[missionId];
   if (!row || typeof row !== 'object') return { error: 'Mission not found.' };
-  const mods = Array.isArray(args?.mods) ? args.mods : [];
-  row.launch_mods = mods;
+  const { rows } = normalizeMissionModRows(Array.isArray(args?.mods) ? args.mods : []);
+  row.launch_mods = rows;
   all[missionId] = row;
   writeManaged(ctx, all);
-  return { ok: true, mods };
+  return { ok: true, mods: rows };
 }
 
 export async function handleManagedScenarioLaunchPost(
