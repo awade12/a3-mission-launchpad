@@ -35,6 +35,7 @@ jobs:
   #         fi
   #         echo "::error::Direct push to main is not allowed."
   #         exit 1
+  # Bump ci
 
   version:
     name: Bump version
