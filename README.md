@@ -18,7 +18,7 @@ Currently, the project is heavily based on mission-making, but is leaning in the
 
 This project is not currently ready for end users. I'm making it public now in hopes of rallying some contributors to make it more of a community tool.
 
-**Want to help shape the future of Launchpad?** I'm actively seeking contributions, check out our [Contributing](#contributing) section below!
+**Want to help shape the future of Launchpad?** I'm actively seeking contributions, check out our [Contributing](#-contributing) section below!
 
 ---
 
