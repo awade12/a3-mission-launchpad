@@ -40,7 +40,7 @@ function minimalTriangleP3d(): P3D {
               deadVert,
             ],
             faceFlags: 0,
-            texture: '',
+            texture: 'units\\preview_co.paa',
             material: '',
           },
         ],
@@ -71,5 +71,8 @@ describe('p3d MLOD', () => {
     expect(r.mesh.triangleCount).toBe(1);
     expect(r.mesh.vertexCount).toBe(3);
     expect(r.mesh.indices.length).toBe(3);
+    expect(r.mesh.uvs?.length).toBe(6);
+    expect(r.mesh.primaryTexture).toBe('units\\preview_co.paa');
+    expect(r.mesh.textureNames).toContain('units\\preview_co.paa');
   });
 });

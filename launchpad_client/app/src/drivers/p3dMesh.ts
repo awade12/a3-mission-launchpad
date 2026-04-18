@@ -5,10 +5,16 @@ export type PreviewMesh = {
   positions: Float32Array;
   indices: Uint32Array;
   normals: Float32Array;
+  /** Two floats per vertex when the source LOD carries UVs (MLOD); otherwise null (e.g. ODOL). */
+  uvs: Float32Array | null;
   vertexCount: number;
   triangleCount: number;
   /** LOD index used (0-based). */
   lodIndex: number;
+  /** Face texture name with the most triangles, for preview resolution. */
+  primaryTexture: string | null;
+  /** Distinct face texture names, most-used first. */
+  textureNames: string[];
 };
 
 export type PreviewMeshResult =
@@ -52,7 +58,9 @@ export function buildPreviewMeshFromMlod(p3d: P3D, opts?: { lodIndex?: number })
 
   const positions: number[] = [];
   const normals: number[] = [];
+  const uvs: number[] = [];
   const indices: number[] = [];
+  const textureCounts = new Map<string, number>();
 
   const pushCorner = (face: MlodFace, vi: number) => {
     const c = face.vertices[vi]!;
@@ -67,6 +75,7 @@ export function buildPreviewMeshFromMlod(p3d: P3D, opts?: { lodIndex?: number })
     const [nx, ny, nz] = normalize3(nx0, ny0, nz0);
     positions.push(px, py, pz);
     normals.push(nx, ny, nz);
+    uvs.push(c.u, c.v);
     return true;
   };
 
@@ -76,6 +85,8 @@ export function buildPreviewMeshFromMlod(p3d: P3D, opts?: { lodIndex?: number })
     if (!pushCorner(face, b)) return;
     if (!pushCorner(face, c)) return;
     indices.push(i0, i0 + 1, i0 + 2);
+    const tex = (face.texture ?? '').trim();
+    if (tex) textureCounts.set(tex, (textureCounts.get(tex) ?? 0) + 1);
   };
 
   for (const face of lod.faces) {
@@ -92,16 +103,27 @@ export function buildPreviewMeshFromMlod(p3d: P3D, opts?: { lodIndex?: number })
 
   const pos = new Float32Array(positions);
   const nrm = new Float32Array(normals);
+  const uvArr = new Float32Array(uvs);
   const idx = new Uint32Array(indices);
+
+  const rankedTextures = [...textureCounts.entries()].sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+  );
+  const primaryTexture = rankedTextures.length ? rankedTextures[0]![0] : null;
+  const textureNames = rankedTextures.map(([t]) => t);
+
   return {
     ok: true,
     mesh: {
       positions: pos,
       indices: idx,
       normals: nrm,
+      uvs: uvArr,
       vertexCount: pos.length / 3,
       triangleCount: idx.length / 3,
       lodIndex: lodIdx,
+      primaryTexture,
+      textureNames,
     },
   };
 }

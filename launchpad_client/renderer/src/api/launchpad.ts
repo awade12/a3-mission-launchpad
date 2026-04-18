@@ -1582,6 +1582,9 @@ export type GetP3dPreviewMeshFromPathResult =
       positions: Float32Array
       indices: Uint32Array
       normals: Float32Array
+      uvs: Float32Array | null
+      primaryTexture: string | null
+      textureNames: string[]
     }
   | { ok: false; error: string }
 
@@ -1600,6 +1603,9 @@ export async function getP3dPreviewMeshFromPath(absPath: string): Promise<GetP3d
     positions?: unknown
     indices?: unknown
     normals?: unknown
+    uvs?: unknown
+    primaryTexture?: unknown
+    textureNames?: unknown
   } | null
   if (!raw || typeof raw !== 'object') {
     return { ok: false, error: 'Invalid response from desktop API.' }
@@ -1635,6 +1641,19 @@ export async function getP3dPreviewMeshFromPath(absPath: string): Promise<GetP3d
   if (!posBuf || posBuf.byteLength !== posNeed || !idxBuf || idxBuf.byteLength !== idxNeed || !nrmBuf || nrmBuf.byteLength !== nrmNeed) {
     return { ok: false, error: 'This model could not be previewed.' }
   }
+  const uvBuf = coerceBinaryPayload(raw.uvs)
+  const uvNeed = vCount * 8
+  const uvs =
+    uvBuf && uvBuf.byteLength === uvNeed ? new Float32Array(uvBuf.buffer, uvBuf.byteOffset, vCount * 2) : null
+
+  let textureNames: string[] = []
+  if (Array.isArray(raw.textureNames)) {
+    textureNames = raw.textureNames.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+  }
+  const pt =
+    typeof raw.primaryTexture === 'string' && raw.primaryTexture.trim() ? raw.primaryTexture.trim() : null
+  const primaryTexture = pt ?? textureNames[0] ?? null
+
   return {
     ok: true,
     lodIndex: Math.floor(li),
@@ -1643,6 +1662,9 @@ export async function getP3dPreviewMeshFromPath(absPath: string): Promise<GetP3d
     positions: new Float32Array(posBuf.buffer, posBuf.byteOffset, vCount * 3),
     indices: new Uint32Array(idxBuf.buffer, idxBuf.byteOffset, tCount * 3),
     normals: new Float32Array(nrmBuf.buffer, nrmBuf.byteOffset, vCount * 3),
+    uvs,
+    primaryTexture,
+    textureNames,
   }
 }
 

@@ -23,6 +23,11 @@ function joinProjectPath(root: string, relPosix: string): string {
   return win ? [base, ...parts].join('\\') : [base, ...parts].join('/')
 }
 
+function dirnameAbs(absPath: string): string {
+  const i = Math.max(absPath.lastIndexOf('/'), absPath.lastIndexOf('\\'))
+  return i <= 0 ? absPath : absPath.slice(0, i)
+}
+
 function normalizePathKey(p: string): string {
   return p.replace(/\\/g, '/').toLowerCase()
 }
@@ -315,6 +320,9 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
     positions: Float32Array
     indices: Uint32Array
     normals: Float32Array
+    uvs: Float32Array | null
+    textureNames: string[]
+    modelDirectory: string
   } | null>(null)
   const [fileErr, setFileErr] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -514,6 +522,9 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
               positions: r.positions,
               indices: r.indices,
               normals: r.normals,
+              uvs: r.uvs,
+              textureNames: r.textureNames,
+              modelDirectory: dirnameAbs(abs),
             })
             setFileContent('')
           } else {
@@ -913,6 +924,9 @@ export function MissionResourceBrowser({ projectRoot, disabled, environment = 'm
                       positions={meshPreview.positions}
                       indices={meshPreview.indices}
                       normals={meshPreview.normals}
+                      uvs={meshPreview.uvs}
+                      textureNames={meshPreview.textureNames}
+                      modelDirectory={meshPreview.modelDirectory}
                     />
                   </div>
                 ) : (

@@ -15,6 +15,7 @@
 			Example: ./a3hook {arma 3 process id} hijack {our process id}
 */
 
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -55,7 +56,12 @@ static void printHelp() {
 	    << "a3hook (development only)\n"
 	    << "  -h, --help              Show this help\n"
 	    << "  <pid> memdump <file>    Write a minidump (.dmp). Windows: dbghelp. Optional env A3HOOK_FULL_MINIDUMP=1 for full memory (huge).\n"
-	    << "  <pid> hijack <ownPid>   Reparent target's main window into owner's main window (Windows).\n";
+		<< "  <pid> hijack <ownPid>   Reparent target's main window into owner's main window (Windows).\n"
+	    << "\n"
+	    << "Hijack hints (borderless / ignored launcher window mode is common):\n"
+	    << "  A3HOOK_LIST_WINDOWS=1   Log top-level HWNDs for each PID before picking.\n"
+	    << "  A3HOOK_TARGET_HWND=0x..  Force target HWND (must belong to target PID).\n"
+	    << "  A3HOOK_OWNER_HWND=0x..   Force owner host HWND (must belong to owner PID).\n";
 }
 
 static bool parsePid(const char* s, unsigned long& outPid) {
@@ -80,6 +86,7 @@ static bool parsePid(const char* s, unsigned long& outPid) {
 #endif
 #include <Windows.h>
 #include <DbgHelp.h>
+#include <TlHelp32.h>
 
 #pragma comment(lib, "Dbghelp.lib")
 
@@ -93,51 +100,298 @@ static std::string winLastErrorString(const char* context) {
 	return std::string(context) + " (Windows error " + std::to_string(err) + ")";
 }
 
-struct MainWindowSearch {
-	DWORD pid = 0;
-	HWND best = nullptr;
-	LONG bestArea = -1;
-};
+/** Optional override: decimal or 0x hex, e.g. A3HOOK_TARGET_HWND=0x1A04B2 */
+static HWND hwndFromEnvVar(const char* name) {
+	const char* s = std::getenv(name);
+	if (!s || !*s) {
+		return nullptr;
+	}
+	char* end = nullptr;
+	const unsigned long long v = std::strtoull(s, &end, 0);
+	if (end == s || *end != '\0') {
+		return nullptr;
+	}
+	if (v == 0) {
+		return nullptr;
+	}
+	return reinterpret_cast<HWND>(static_cast<uintptr_t>(v));
+}
 
-static BOOL CALLBACK enumTopLevelWindows(HWND hwnd, LPARAM lp) {
-	auto* s = reinterpret_cast<MainWindowSearch*>(lp);
+static bool isTopLevelWin32Window(HWND hwnd) {
+	return (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) == 0;
+}
+
+static std::string hwndToHex(HWND hwnd) {
+	char buf[24];
+	std::snprintf(buf, sizeof(buf), "0x%llX", static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(hwnd)));
+	return std::string(buf);
+}
+
+static void logOneWindowLine(DWORD wantPid, HWND hwnd) {
 	DWORD wpid = 0;
 	GetWindowThreadProcessId(hwnd, &wpid);
-	if (wpid != s->pid) {
-		return TRUE;
+	if (wpid != wantPid) {
+		return;
 	}
-	if (!IsWindowVisible(hwnd)) {
-		return TRUE;
-	}
-	if (GetWindow(hwnd, GW_OWNER) != nullptr) {
-		return TRUE;
-	}
-	const LONG_PTR ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-	if (ex & WS_EX_TOOLWINDOW) {
-		return TRUE;
-	}
+	char title[280]{};
+	char cls[280]{};
+	GetWindowTextA(hwnd, title, static_cast<int>(sizeof(title) - 1));
+	GetClassNameA(hwnd, cls, static_cast<int>(sizeof(cls) - 1));
 	RECT r{};
-	if (!GetWindowRect(hwnd, &r)) {
-		return TRUE;
-	}
-	const LONG w = r.right - r.left;
-	const LONG h = r.bottom - r.top;
-	if (w < 160 || h < 120) {
-		return TRUE;
-	}
-	const LONG area = w * h;
-	if (area > s->bestArea) {
-		s->bestArea = area;
-		s->best = hwnd;
-	}
+	GetWindowRect(hwnd, &r);
+	const LONG_PTR st = GetWindowLongPtr(hwnd, GWL_STYLE);
+	const LONG_PTR ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+	const BOOL vis = IsWindowVisible(hwnd);
+	HWND owner = GetWindow(hwnd, GW_OWNER);
+	HWND parent = GetParent(hwnd);
+	const long area = static_cast<long>(r.right - r.left) * static_cast<long>(r.bottom - r.top);
+	logInfo("  HWND=" + hwndToHex(hwnd) + " top=" + std::to_string(isTopLevelWin32Window(hwnd) ? 1 : 0) + " parent=" + hwndToHex(parent)
+	        + " vis=" + std::to_string(vis) + " ws_vis=" + std::to_string((st & WS_VISIBLE) ? 1 : 0) + " area=" + std::to_string(area)
+	        + " owner=" + std::to_string(owner != nullptr) + " tool=" + std::to_string((ex & WS_EX_TOOLWINDOW) != 0) + " class=\"" + cls
+	        + "\" text=\"" + title + "\"");
+}
+
+struct DebugLogTreeCtx {
+	DWORD pid = 0;
+};
+
+static BOOL CALLBACK enumDesktopTreeForLog(HWND hwnd, LPARAM lp) {
+	auto* ctx = reinterpret_cast<DebugLogTreeCtx*>(lp);
+	logOneWindowLine(ctx->pid, hwnd);
+	EnumChildWindows(hwnd, enumDesktopTreeForLog, lp);
 	return TRUE;
 }
 
-static HWND findMainVisibleWindow(DWORD pid) {
-	MainWindowSearch s;
-	s.pid = pid;
-	EnumWindows(enumTopLevelWindows, reinterpret_cast<LPARAM>(&s));
-	return s.best;
+static void debugLogAllWindowsForPid(DWORD pid) {
+	logInfo("--- All HWNDs under desktop tree for PID " + std::to_string(pid) + " (A3HOOK_LIST_WINDOWS) ---");
+	DebugLogTreeCtx ctx;
+	ctx.pid = pid;
+	EnumChildWindows(GetDesktopWindow(), enumDesktopTreeForLog, reinterpret_cast<LPARAM>(&ctx));
+}
+
+struct PickLargestWindow {
+	DWORD pid = 0;
+	bool skipToolWindow = false;
+	bool skipOwnedTopLevel = false;
+	bool requireIsWindowVisible = true;
+	HWND best = nullptr;
+	LONG bestArea = -1;
+
+	void consider(HWND hwnd) {
+		DWORD wpid = 0;
+		GetWindowThreadProcessId(hwnd, &wpid);
+		if (wpid != pid) {
+			return;
+		}
+		const BOOL iwv = IsWindowVisible(hwnd);
+		if (requireIsWindowVisible && !iwv) {
+			return;
+		}
+		if (!requireIsWindowVisible && !iwv) {
+			const LONG_PTR st = GetWindowLongPtr(hwnd, GWL_STYLE);
+			if (!(st & WS_VISIBLE)) {
+				return;
+			}
+		}
+		// Owned *top-level* only; children often have no owner and must not be filtered out.
+		if (skipOwnedTopLevel && isTopLevelWin32Window(hwnd) && GetWindow(hwnd, GW_OWNER) != nullptr) {
+			return;
+		}
+		if (skipToolWindow) {
+			const LONG_PTR ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+			if (ex & WS_EX_TOOLWINDOW) {
+				return;
+			}
+		}
+		RECT r{};
+		if (!GetWindowRect(hwnd, &r)) {
+			return;
+		}
+		const LONG w = r.right - r.left;
+		const LONG h = r.bottom - r.top;
+		if (w < 8 || h < 8) {
+			return;
+		}
+		const long long area64 = static_cast<long long>(w) * static_cast<long long>(h);
+		const LONG area = area64 > INT_MAX ? INT_MAX : static_cast<LONG>(area64);
+		if (area > bestArea) {
+			bestArea = area;
+			best = hwnd;
+		}
+	}
+
+	static BOOL CALLBACK enumProc(HWND hwnd, LPARAM lp) {
+		reinterpret_cast<PickLargestWindow*>(lp)->consider(hwnd);
+		return TRUE;
+	}
+
+	/** Depth-first: every HWND under the desktop (captures render HWNDs that are not top-level). */
+	static BOOL CALLBACK enumDesktopSubtree(HWND hwnd, LPARAM lp) {
+		PickLargestWindow* pick = reinterpret_cast<PickLargestWindow*>(lp);
+		pick->consider(hwnd);
+		EnumChildWindows(hwnd, enumDesktopSubtree, lp);
+		return TRUE;
+	}
+};
+
+struct ThreadPickLargest {
+	DWORD pid = 0;
+	HWND best = nullptr;
+	LONG bestArea = -1;
+	bool requireStyleVisible = true;
+
+	void consider(HWND hwnd) {
+		DWORD wpid = 0;
+		GetWindowThreadProcessId(hwnd, &wpid);
+		if (wpid != pid) {
+			return;
+		}
+		const LONG_PTR st = GetWindowLongPtr(hwnd, GWL_STYLE);
+		if (requireStyleVisible && !(st & WS_VISIBLE)) {
+			return;
+		}
+		RECT r{};
+		if (!GetWindowRect(hwnd, &r)) {
+			return;
+		}
+		const LONG w = r.right - r.left;
+		const LONG h = r.bottom - r.top;
+		const LONG minDim = requireStyleVisible ? 32 : 64;
+		if (w < minDim || h < minDim) {
+			return;
+		}
+		const long long area64 = static_cast<long long>(w) * static_cast<long long>(h);
+		const LONG area = area64 > INT_MAX ? INT_MAX : static_cast<LONG>(area64);
+		if (area > bestArea) {
+			bestArea = area;
+			best = hwnd;
+		}
+	}
+
+	static BOOL CALLBACK enumThreadWnd(HWND hwnd, LPARAM lp) {
+		reinterpret_cast<ThreadPickLargest*>(lp)->consider(hwnd);
+		return TRUE;
+	}
+};
+
+static HWND findLargestWindowViaThreadEnumeration(DWORD pid) {
+	ThreadPickLargest acc;
+	acc.pid = pid;
+	const HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (snap == INVALID_HANDLE_VALUE) {
+		return nullptr;
+	}
+	THREADENTRY32 te{};
+	te.dwSize = sizeof(te);
+	if (Thread32First(snap, &te)) {
+		do {
+			if (te.th32OwnerProcessID != pid) {
+				continue;
+			}
+			EnumThreadWindows(te.th32ThreadID, ThreadPickLargest::enumThreadWnd, reinterpret_cast<LPARAM>(&acc));
+		} while (Thread32Next(snap, &te));
+	}
+	CloseHandle(snap);
+	return acc.best;
+}
+
+static HWND findLargestWindowViaThreadEnumerationLoose(DWORD pid) {
+	ThreadPickLargest acc;
+	acc.pid = pid;
+	acc.requireStyleVisible = false;
+	const HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (snap == INVALID_HANDLE_VALUE) {
+		return nullptr;
+	}
+	THREADENTRY32 te{};
+	te.dwSize = sizeof(te);
+	if (Thread32First(snap, &te)) {
+		do {
+			if (te.th32OwnerProcessID != pid) {
+				continue;
+			}
+			EnumThreadWindows(te.th32ThreadID, ThreadPickLargest::enumThreadWnd, reinterpret_cast<LPARAM>(&acc));
+		} while (Thread32Next(snap, &te));
+	}
+	CloseHandle(snap);
+	return acc.best;
+}
+
+/**
+ * Borderless / "fullscreen" titles often use WS_EX_TOOLWINDOW; some setups never report
+ * IsWindowVisible() the same as windowed mode. Try progressively looser rules, then per-thread HWNDs.
+ * Full desktop subtree search finds HWNDs that are not top-level (common for some D3D paths).
+ */
+static HWND findHostableWindowForProcess(DWORD pid) {
+	if (const char* dbg = std::getenv("A3HOOK_LIST_WINDOWS"); dbg && dbg[0] == '1' && dbg[1] == '\0') {
+		debugLogAllWindowsForPid(pid);
+	}
+
+	static const struct {
+		bool skipTool;
+		bool skipOwned;
+		bool reqIsWinVis;
+	} passes[] = {
+	    // Strict (classic windowed)
+	    {true, true, true},
+	    // Borderless desktop / many "fullscreen windowed" builds use WS_EX_TOOLWINDOW
+	    {false, true, true},
+	    // Owned top-level (launcher / shell relationships)
+	    {false, false, true},
+	    // Exclusive fullscreen: sometimes WS_VISIBLE without IsWindowVisible
+	    {false, false, false},
+	};
+
+	for (const auto& p : passes) {
+		PickLargestWindow pick;
+		pick.pid = pid;
+		pick.skipToolWindow = p.skipTool;
+		pick.skipOwnedTopLevel = p.skipOwned;
+		pick.requireIsWindowVisible = p.reqIsWinVis;
+		EnumWindows(PickLargestWindow::enumProc, reinterpret_cast<LPARAM>(&pick));
+		if (!pick.best) {
+			EnumChildWindows(GetDesktopWindow(), PickLargestWindow::enumDesktopSubtree, reinterpret_cast<LPARAM>(&pick));
+		}
+		if (pick.best) {
+			return pick.best;
+		}
+	}
+
+	if (HWND w = findLargestWindowViaThreadEnumeration(pid)) {
+		return w;
+	}
+	if (HWND w = findLargestWindowViaThreadEnumerationLoose(pid)) {
+		return w;
+	}
+	return nullptr;
+}
+
+static HWND resolveTargetWindow(DWORD pid) {
+	if (HWND forced = hwndFromEnvVar("A3HOOK_TARGET_HWND")) {
+		DWORD wpid = 0;
+		GetWindowThreadProcessId(forced, &wpid);
+		if (wpid != pid) {
+			logError("A3HOOK_TARGET_HWND does not belong to the target PID.");
+			return nullptr;
+		}
+		logInfo("Using A3HOOK_TARGET_HWND override.");
+		return forced;
+	}
+	return findHostableWindowForProcess(pid);
+}
+
+static HWND resolveOwnerWindow(DWORD pid) {
+	if (HWND forced = hwndFromEnvVar("A3HOOK_OWNER_HWND")) {
+		DWORD wpid = 0;
+		GetWindowThreadProcessId(forced, &wpid);
+		if (wpid != pid) {
+			logError("A3HOOK_OWNER_HWND does not belong to the owner PID.");
+			return nullptr;
+		}
+		logInfo("Using A3HOOK_OWNER_HWND override.");
+		return forced;
+	}
+	return findHostableWindowForProcess(pid);
 }
 
 static MINIDUMP_TYPE minidumpTypeFromEnv() {
@@ -192,14 +446,17 @@ static bool hijackWindow(unsigned long targetPid, unsigned long ownerPid) {
 		return false;
 	}
 
-	HWND targetHw = findMainVisibleWindow(static_cast<DWORD>(targetPid));
-	HWND parentHw = findMainVisibleWindow(static_cast<DWORD>(ownerPid));
+	HWND targetHw = resolveTargetWindow(static_cast<DWORD>(targetPid));
+	HWND parentHw = resolveOwnerWindow(static_cast<DWORD>(ownerPid));
 	if (!targetHw) {
-		logError("Could not find a suitable top-level window for target PID " + std::to_string(targetPid) + ".");
+		logError("Could not find a suitable window for target PID " + std::to_string(targetPid) + ".");
+		logInfo("Confirm the PID is the game (e.g. arma3_x64.exe), not a launcher. "
+		        "Try A3HOOK_LIST_WINDOWS=1 for a full HWND list, or A3HOOK_TARGET_HWND=0x...");
 		return false;
 	}
 	if (!parentHw) {
-		logError("Could not find a suitable top-level window for owner PID " + std::to_string(ownerPid) + ".");
+		logError("Could not find a suitable window for owner PID " + std::to_string(ownerPid) + ".");
+		logInfo("Try: A3HOOK_OWNER_HWND=0x... for the host window.");
 		return false;
 	}
 

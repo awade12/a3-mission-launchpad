@@ -1524,10 +1524,40 @@
   min-height: 280px;
 }
 
-.mission-p3d-preview-canvas-wrap {
-  width: 100%;
+.mission-p3d-preview-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--fg-muted);
+  user-select: none;
+}
+
+.mission-p3d-preview-opt--grow {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.mission-p3d-preview-opt-label {
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.mission-p3d-preview-select {
   flex: 1;
-  min-height: 280px;
+  min-width: 0;
+  max-width: 280px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--fg);
+  font: inherit;
+}
+
+.mission-p3d-preview-opt:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .mission-image-preview {
@@ -1539,6 +1569,36 @@
   border: 1px solid var(--border);
   background: var(--bg-subtle);
   overflow: auto;
+
+  & > div.mission-p3d-preview-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elevated);
+    font-size: 0.8125rem;
+  }
+
+  & > div.mission-image-preview-frame {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-conic-gradient(#2a2a2e 0% 25%, #1e1e22 0% 50%) 50% / 16px 16px;
+
+    &.mission-p3d-preview-frame {
+      height: 100%;
+      background: transparent;
+      & > div.mission-p3d-preview-canvas-wrap {
+        width: 100%;
+        height: 100%;
+        flex: 1;
+        min-height: 280px;
+      }
+    }
+  }
 }
 
 .mission-image-preview:focus-within {
@@ -1546,19 +1606,12 @@
   box-shadow: var(--focus);
 }
 
-.mission-image-preview-frame {
-  margin: auto;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: min(100%, 240px);
-  background: repeating-conic-gradient(#2a2a2e 0% 25%, #1e1e22 0% 50%) 50% / 16px 16px;
-}
-
 @media (prefers-color-scheme: light) {
   .mission-image-preview-frame {
     background: repeating-conic-gradient(#e8e8ec 0% 25%, #dddde2 0% 50%) 50% / 16px 16px;
+  }
+  .mission-p3d-preview-frame {
+    background: repeating-conic-gradient(rgba(232, 232, 236, 0.42) 0% 25%, rgba(221, 221, 226, 0.42) 0% 50%) 50% / 16px 16px;
   }
 }
 
@@ -2116,7 +2169,7 @@
   visibility: hidden;
 }
 
-.mission-tree-item.is-expanded .mission-tree-row-dir .mission-tree-toggle::before {
+.mission-tree-item.is-expanded > .mission-tree-line > .mission-tree-row-dir > .mission-tree-toggle::before {
   transform: rotate(90deg);
 }
 

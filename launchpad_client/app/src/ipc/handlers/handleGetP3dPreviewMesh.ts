@@ -73,7 +73,7 @@ export function handleGetP3dPreviewMesh(
   }
 
   const m = meshResult.mesh;
-  return {
+  const out: Record<string, unknown> = {
     ok: true,
     lodIndex: m.lodIndex,
     vertexCount: m.vertexCount,
@@ -81,5 +81,13 @@ export function handleGetP3dPreviewMesh(
     positions: Buffer.from(m.positions.buffer, m.positions.byteOffset, m.positions.byteLength),
     indices: Buffer.from(m.indices.buffer, m.indices.byteOffset, m.indices.byteLength),
     normals: Buffer.from(m.normals.buffer, m.normals.byteOffset, m.normals.byteLength),
+    textureNames: m.textureNames,
   };
+  if (m.primaryTexture) {
+    out.primaryTexture = m.primaryTexture;
+  }
+  if (m.uvs && m.uvs.byteLength === m.vertexCount * 8) {
+    out.uvs = Buffer.from(m.uvs.buffer, m.uvs.byteOffset, m.uvs.byteLength);
+  }
+  return out;
 }

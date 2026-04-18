@@ -91,9 +91,12 @@ function meshFromOdol(odol: OdolLike): PreviewMeshResult {
       positions: new Float32Array(positions),
       normals: new Float32Array(normals),
       indices: new Uint32Array(indices),
+      uvs: null,
       vertexCount: positions.length / 3,
       triangleCount: indices.length / 3,
       lodIndex: lodIdx,
+      primaryTexture: null,
+      textureNames: [],
     },
   };
 }
