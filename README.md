@@ -1,33 +1,33 @@
-# 🚀 A3 Mission Launchpad
+# 🚀 A3 Launchpad
 
-Welcome to **A3 Mission Launchpad**—a powerful suite of tools designed to help Arma 3 mission makers and modders bring their creative visions to life!
+**A3 Launchpad** is a robust suite of development tools for Arma 3. 
+
+The main goals of Launchpad are:
+
+- To introduce a near AAA-quality development environment to good old Arma 3.
+- Reinforce best-practices for beginners and advanced programmers/modders alike - from the get-go.
+- Maintain reproducible, portable and standardized projects.
+- To introduce integrated debugging like a native runtime debugging API and live tailing - even on a remote server.
+- Provide a platform for creating maintainable unit tests and running software/hardware profiling studies.
+- Remote debugging for Arma 3 (Native Extension)
+- Managed projects with git integrations and resource tracking/editing.
+
+Currently, the project is heavily based on mission-making, but is leaning in the direction of overall development and debugging.
 
 ## ⚠️ Pre-Release Notice
 
-This project is currently in **pre-release** and not yet ready for end users. We're actively developing features, fixing bugs, and building out the core functionality. 
+This project is not currently ready for end users. I'm making it public now in hopes of rallying some contributors to make it more of a community tool.
 
-**Want to help shape the future of Launchpad?** We're actively seeking contributions—whether you're a developer, mission maker, or enthusiast. Check out our [Contributing](#contributing) section below!
-
----
-
-## ✨ What is Launchpad?
-
-**Launchpad** is a comprehensive toolkit that helps you:
-- 📁 **Organize & Track** your mission projects and resources
-- 💻 **Write & Debug** SQF scripts with ease
-- 📊 **Profile** your missions to optimize performance
-- 🔗 **Manage Version Control** directly with GitHub integration
+**Want to help shape the future of Launchpad?** I'm actively seeking contributions, check out our [Contributing](#contributing) section below!
 
 ---
 
-## 🚀 Getting Started
-
-### Installation
+## Installation
 
 Install Launchpad via a cross-platform installer or build from source. For detailed instructions, see [Installation Guide](docs/INSTALLATION.md).
 
 - **Download a release** — Get started quickly from the [releases page](/releases)
-- **Build from source** — Clone the repo, build the renderer, then package Electron from `launchpad_client/app`
+- **Build from source** — Clone the repo and easily build the project from source. See [Installation Guide](docs/INSTALLATION.md).
 
 ### Quick Start
 
@@ -76,29 +76,19 @@ When opening an issue, please include:
 - What actually happened
 - Any error messages or logs
 
----
-
-## 📚 Project Structure
-
-- `launchpad_client/` — Electron-based desktop application (React + TypeScript)
-- `launchpad_mod/` — Arma 3 mod components, including the extension
-- `docs/` — Documentation and guides
+__Suggested support message format__
+Problem: I can't update the program when my VPN is enabled, and only on Fridays.
+OS: Windows 11
+Installation: Installer
+Graphics: Radeon RX-580
 
 ---
 
 ## 💬 Need Help?
 
-Have questions or ran into a problem? We're here to help!
+Have questions or ran into a problem?
 
 - **[GitHub Issues](https://github.com/a3r0id/a3-mission-launchpad/issues)** — For bugs, questions, and feature requests
 - **Include Context** — Tell us what you tried, what you expected, and what happened—it helps us help you faster
 
 ---
-
-## 📄 License
-
-[Add your license here]
-
----
-
-**Thank you for your interest in A3 Mission Launchpad!** Together, we're building the ultimate tool for Arma 3 mission makers. 🎯
