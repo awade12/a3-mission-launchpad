@@ -11,6 +11,7 @@ The main goals of Launchpad are:
 - Provide a platform for creating maintainable unit tests and running software/hardware profiling studies.
 - Remote debugging for Arma 3 (Native Extension)
 - Managed projects with git integrations and resource tracking/editing.
+- Visualize/maintain Arma 3 assets all in one place with an unprecedented, lightning fast rendering system for proprietary BI formats. (P3D & PAA currently supported)
 
 Currently, the project is heavily based on mission-making, but is leaning in the direction of overall development and debugging.
 
