@@ -5,6 +5,7 @@ import {
   type ManagedScenario,
   type MissionLaunchMod,
 } from '../api/launchpad'
+import { pathForImportedHtmlMod } from '../mission/workshopModPath'
 import { extractGameTypeFromDescriptionExt, missionDescriptionExtPath } from '../mission/descriptionExt'
 import { MissionEditModal } from '../components/MissionEditModal'
 import { ScriptEditorModal } from '../components/Editor/IntegratedScriptEditor'
