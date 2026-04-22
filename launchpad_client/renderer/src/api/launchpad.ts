@@ -203,6 +203,8 @@ export type LaunchpadSettings = {
   remote_servers: RemoteServerSettingsEntry[]
   logs_remote_default_server_id: string
   logs_remote_default_folder: string
+  /** Full path to the HEMTT executable when not discoverable from the system; empty uses the default name. */
+  hemtt_path: string
 }
 
 export type RemoteServerAuthKind = 'password' | 'key'
@@ -265,6 +267,7 @@ function parseLaunchpadSettings(raw: Record<string, unknown>): LaunchpadSettings
     remote_servers: remoteServers,
     logs_remote_default_server_id: typeof raw.logs_remote_default_server_id === 'string' ? raw.logs_remote_default_server_id : '',
     logs_remote_default_folder: typeof raw.logs_remote_default_folder === 'string' ? raw.logs_remote_default_folder : '/home/steam/arma3',
+    hemtt_path: typeof raw.hemtt_path === 'string' ? raw.hemtt_path : '',
   }
 }
 
@@ -850,6 +853,7 @@ export async function updateSettings(
       | 'remote_servers'
       | 'logs_remote_default_server_id'
       | 'logs_remote_default_folder'
+      | 'hemtt_path'
     >
   >,
 ): Promise<UpdateSettingsSuccess | UpdateSettingsError> {
